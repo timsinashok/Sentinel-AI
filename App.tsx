@@ -143,15 +143,16 @@ const App: React.FC = () => {
         
         {/* Brand */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-ceramic-900 rounded flex items-center justify-center shadow-lg">
-             <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white">
-                <path d="M12 2L3 7V12C3 17 7 21 12 22C17 21 21 17 21 12V7L12 2Z" fill="currentColor" fillOpacity="0.2" />
-                <path d="M12 22C17 21 21 17 21 12V7L12 2L3 7V12C3 17 7 21 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-                <circle cx="12" cy="12" r="3" fill="currentColor"/>
-             </svg>
+          <div className="w-9 h-9 bg-ceramic-900 rounded flex items-center justify-center shadow-lg ring-1 ring-black/10 overflow-hidden">
+            <img
+              src="/logo.png"
+              alt="Sentinel"
+              className="w-8 h-8 object-contain"
+              draggable={false}
+            />
           </div>
           <div className="flex flex-col">
-             <h1 className="text-lg font-bold tracking-tight text-ceramic-900 leading-none font-sans">SENTINEL</h1>
+             <h1 className="text-lg font-bold tracking-tight text-ceramic-900 leading-none font-sans">Sentinel.ai</h1>
              <span className="text-[9px] font-mono text-ceramic-400 uppercase tracking-widest">Autonomous Safety OS v2.4</span>
           </div>
         </div>

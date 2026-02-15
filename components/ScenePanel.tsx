@@ -38,8 +38,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({
   // Chat text (Without Sentinel only)
   const userPrompt = 'what did just happen?';
   const vlmReply =
-    'A man just collided in the warehouse and was almost dead. ' +
-    'The forklift and pedestrian trajectories intersected without any predictive intervention.';
+    'A drowsy forklift driver collided with items rack in the warehouse and was almost buried by the falling debris.';
   
   // Coordinate scaling
   const scaleX = (val: number) => val * 8; // 0-100 -> 0-800
