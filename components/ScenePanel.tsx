@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Entity, EntityType, RiskLevel, SystemMode } from '../types';
 import { COLORS, SENTINEL_ANALYSIS_PAUSE_AT_SEC, SENTINEL_VIDEO_START_DELAY_SEC } from '../constants';
-import { Scan, AlertTriangle, Crosshair } from 'lucide-react';
+import { Scan, AlertTriangle, Crosshair, Brain, ShieldAlert, Power, Bell, CheckCircle2 } from 'lucide-react';
 
 interface ScenePanelProps {
   entities: Entity[];
@@ -319,71 +319,84 @@ const ScenePanel: React.FC<ScenePanelProps> = ({
       {/* -------------------------------------------------------- */}
       {isSentinelActive && analysisPaused && (
         <div className="absolute inset-0 z-[55] flex items-center justify-center p-6 bg-black/45 backdrop-blur-[2px]">
-          <div className="max-w-3xl w-full">
-            <div className="bg-black/80 border border-emerald-400/20 rounded-xl shadow-2xl overflow-hidden">
+          <div className="max-w-4xl w-full">
+            <div className="bg-black/80 border border-emerald-400/20 rounded-2xl shadow-2xl overflow-hidden">
               <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
-                <div className="text-xs font-mono text-emerald-300 uppercase tracking-widest">
-                  Sentinel AI • World Model Forecast
+                <div className="flex items-center gap-2">
+                  <Brain className="w-4 h-4 text-emerald-300" />
+                  <div className="text-xs font-mono text-emerald-300 uppercase tracking-widest">
+                    Sentinel World Model
+                  </div>
                 </div>
                 <div className="text-[10px] font-mono text-white/60">
                   paused @ {SENTINEL_ANALYSIS_PAUSE_AT_SEC.toFixed(1)}s
                 </div>
               </div>
 
-              <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="text-sm font-bold text-white">What Sentinel is doing</div>
-                  <div className="text-xs text-white/70 leading-relaxed">
-                    Sentinel’s world model looks into possible futures, identifies a potential hazard, and uses a Monitoring
-                    Agent to decide the safest intervention.
-                  </div>
+              <div className="p-5">
+                <div className="text-2xl md:text-3xl font-black tracking-tight text-white">
+                  Potential hazard detected
+                </div>
+                <div className="mt-1 text-xs md:text-sm text-white/65">
+                  Forecasted intersection: forklift × pedestrian. Running Monitoring Agent…
+                </div>
 
-                  <div className="mt-4 text-[10px] font-mono text-white/50 uppercase tracking-widest">
-                    Running process
+                {/* Progress steps */}
+                <div className="mt-5 grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className={`rounded-xl border px-4 py-3 bg-white/5 ${analysisStep >= 1 ? 'border-emerald-400/30' : 'border-white/10 opacity-70'}`}>
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-emerald-300" />
+                      <div className="text-[11px] font-mono text-white/80 uppercase tracking-widest">Predict</div>
+                      {analysisStep >= 1 && <CheckCircle2 className="w-4 h-4 text-emerald-300 ml-auto" />}
+                    </div>
+                    <div className="mt-1 text-xs text-white/60">Simulate futures</div>
                   </div>
-                  <div className="space-y-2">
-                    <div className={`flex items-center gap-2 text-xs font-mono ${analysisStep >= 1 ? 'text-emerald-200' : 'text-white/40'}`}>
-                      <span className="w-2 h-2 rounded-full bg-emerald-400/70 animate-pulse" />
-                      World Model: forecasting trajectories (forklift + pedestrian)
+                  <div className={`rounded-xl border px-4 py-3 bg-white/5 ${analysisStep >= 2 ? 'border-emerald-400/30' : 'border-white/10 opacity-70'}`}>
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 text-emerald-300" />
+                      <div className="text-[11px] font-mono text-white/80 uppercase tracking-widest">Detect</div>
+                      {analysisStep >= 2 && <CheckCircle2 className="w-4 h-4 text-emerald-300 ml-auto" />}
                     </div>
-                    <div className={`flex items-center gap-2 text-xs font-mono ${analysisStep >= 2 ? 'text-emerald-200' : 'text-white/40'}`}>
-                      <span className="w-2 h-2 rounded-full bg-emerald-400/70 animate-pulse" />
-                      Threat: potential aisle intersection collision detected
+                    <div className="mt-1 text-xs text-white/60">Find conflict</div>
+                  </div>
+                  <div className={`rounded-xl border px-4 py-3 bg-white/5 ${analysisStep >= 3 ? 'border-emerald-400/30' : 'border-white/10 opacity-70'}`}>
+                    <div className="flex items-center gap-2">
+                      <Scan className="w-4 h-4 text-emerald-300" />
+                      <div className="text-[11px] font-mono text-white/80 uppercase tracking-widest">Decide</div>
+                      {analysisStep >= 3 && <CheckCircle2 className="w-4 h-4 text-emerald-300 ml-auto" />}
                     </div>
-                    <div className={`flex items-center gap-2 text-xs font-mono ${analysisStep >= 3 ? 'text-emerald-200' : 'text-white/40'}`}>
-                      <span className="w-2 h-2 rounded-full bg-emerald-400/70 animate-pulse" />
-                      Monitoring Agent: evaluating mitigation options
+                    <div className="mt-1 text-xs text-white/60">Monitoring Agent</div>
+                  </div>
+                  <div className={`rounded-xl border px-4 py-3 bg-white/5 ${analysisStep >= 4 ? 'border-emerald-400/30' : 'border-white/10 opacity-70'}`}>
+                    <div className="flex items-center gap-2">
+                      <Power className="w-4 h-4 text-emerald-300" />
+                      <div className="text-[11px] font-mono text-white/80 uppercase tracking-widest">Act</div>
+                      {analysisStep >= 4 && <CheckCircle2 className="w-4 h-4 text-emerald-300 ml-auto" />}
                     </div>
-                    <div className={`flex items-center gap-2 text-xs font-mono ${analysisStep >= 4 ? 'text-emerald-200' : 'text-white/40'}`}>
-                      <span className="w-2 h-2 rounded-full bg-emerald-400/70 animate-pulse" />
-                      Decision: kill power to warehouse vehicle (kill switch)
+                    <div className="mt-1 text-xs text-white/60">Mitigate now</div>
+                  </div>
+                </div>
+
+                {/* Action chips */}
+                <div className="mt-5 flex flex-col md:flex-row gap-3">
+                  <div className={`flex-1 rounded-xl border px-4 py-4 bg-emerald-500/10 ${analysisStep >= 4 ? 'border-emerald-400/30' : 'border-white/10 opacity-70'}`}>
+                    <div className="flex items-center gap-2">
+                      <Power className="w-5 h-5 text-emerald-200" />
+                      <div className="text-sm font-extrabold text-white">Kill switch vehicle</div>
+                      <div className="ml-auto text-[10px] font-mono text-white/50">F-12</div>
                     </div>
-                    <div className={`flex items-center gap-2 text-xs font-mono ${analysisStep >= 5 ? 'text-emerald-200' : 'text-white/40'}`}>
-                      <span className="w-2 h-2 rounded-full bg-emerald-400/70 animate-pulse" />
-                      Action: inform supervisor + log incident context
+                  </div>
+                  <div className={`flex-1 rounded-xl border px-4 py-4 bg-white/5 ${analysisStep >= 5 ? 'border-emerald-400/30' : 'border-white/10 opacity-70'}`}>
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-5 h-5 text-emerald-200" />
+                      <div className="text-sm font-extrabold text-white">Notify supervisor</div>
+                      <div className="ml-auto text-[10px] font-mono text-white/50">Shift Lead</div>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="text-sm font-bold text-white">Recommended actions</div>
-                  <div className="p-4 rounded-lg border border-white/10 bg-white/5">
-                    <div className="text-xs font-mono text-white/60 uppercase tracking-widest">Primary</div>
-                    <div className="text-sm font-bold text-emerald-200 mt-1">Kill switch for vehicle (F-12)</div>
-                    <div className="text-xs text-white/70 mt-1">
-                      Immediately disable power to eliminate kinetic energy in the shared aisle.
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-lg border border-white/10 bg-white/5">
-                    <div className="text-xs font-mono text-white/60 uppercase tracking-widest">Secondary</div>
-                    <div className="text-sm font-bold text-emerald-200 mt-1">Inform supervisor</div>
-                    <div className="text-xs text-white/70 mt-1">
-                      Notify shift lead with location, context, and recommended safety protocol.
-                    </div>
-                  </div>
-                  <div className="text-[10px] font-mono text-white/50">
-                    Dashboard updates are shown on the right.
-                  </div>
+                <div className="mt-3 text-[10px] font-mono text-white/45 uppercase tracking-widest">
+                  See dashboard updates on the right
                 </div>
               </div>
             </div>
