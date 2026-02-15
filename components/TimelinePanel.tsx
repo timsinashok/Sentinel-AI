@@ -1,0 +1,1 @@
+// File removed - Logic moved to inline timeline in App.tsx for simpler layout

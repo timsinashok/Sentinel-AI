@@ -1,0 +1,13 @@
+/* Intentionally minimal: Tailwind is loaded via CDN in index.html */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* Smooth text rendering across browsers */
+body {
+  text-rendering: optimizeLegibility;
+}
+

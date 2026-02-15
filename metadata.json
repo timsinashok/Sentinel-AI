@@ -1,0 +1,5 @@
+{
+  "name": "Sentinel: Predictive Safety System",
+  "description": "A high-fidelity industrial demo of a world-model based predictive safety system for robotics environments.",
+  "requestFramePermissions": []
+}
