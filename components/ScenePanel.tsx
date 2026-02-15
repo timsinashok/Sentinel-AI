@@ -1,7 +1,15 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Entity, EntityType, RiskLevel, SystemMode } from '../types';
-import { COLORS, SENTINEL_ANALYSIS_PAUSE_AT_SEC, SENTINEL_VIDEO_START_DELAY_SEC } from '../constants';
-import { Scan, AlertTriangle, Crosshair, Brain, ShieldAlert, Power, Bell, CheckCircle2 } from 'lucide-react';
+import {
+  COLORS,
+  SENTINEL_DETECT_AT_SEC,
+  SENTINEL_KILL_SWITCH_AT_SEC,
+  SENTINEL_NOTIFY_SUPERVISOR_AT_SEC,
+  SENTINEL_MITIGATE_AT_SEC,
+  SENTINEL_OBSERVE_OVERLAY_AT_SEC,
+  SENTINEL_VIDEO_START_DELAY_SEC,
+} from '../constants';
+import { Scan, AlertTriangle, Crosshair, ChevronRight, Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface ScenePanelProps {
   entities: Entity[];
@@ -23,9 +31,11 @@ const ScenePanel: React.FC<ScenePanelProps> = ({
   const [videoEnded, setVideoEnded] = useState(false);
   const [typedUser, setTypedUser] = useState('');
   const [typedVlm, setTypedVlm] = useState('');
-  const [analysisPaused, setAnalysisPaused] = useState(false);
-  const [analysisStep, setAnalysisStep] = useState(0);
   const [acquiring, setAcquiring] = useState(false);
+  const [videoTimeSec, setVideoTimeSec] = useState(0);
+  const [sentinelDetected, setSentinelDetected] = useState(false);
+  const [sentinelDetectedAtMs, setSentinelDetectedAtMs] = useState<number | null>(null);
+  const [sentinelNowMs, setSentinelNowMs] = useState(0);
   
   // Must declare this before useEffect hooks that reference it
   const isSentinelActive = systemMode === 'ACTIVE';
@@ -52,14 +62,15 @@ const ScenePanel: React.FC<ScenePanelProps> = ({
         setVideoEnded(false);
         setTypedUser('');
         setTypedVlm('');
-        setAnalysisPaused(false);
-        setAnalysisStep(0);
+        setVideoTimeSec(0);
 
         // With Sentinel: simulate feed acquisition delay before playback
         if (isSentinelActive) {
           setAcquiring(true);
           const t = window.setTimeout(() => {
             setAcquiring(false);
+            setSentinelDetected(false);
+            setSentinelDetectedAtMs(null);
             const playPromise = video.play();
             if (playPromise !== undefined) {
               playPromise.catch((error) => {
@@ -83,9 +94,10 @@ const ScenePanel: React.FC<ScenePanelProps> = ({
         setVideoEnded(false);
         setTypedUser('');
         setTypedVlm('');
-        setAnalysisPaused(false);
-        setAnalysisStep(0);
         setAcquiring(false);
+        setVideoTimeSec(0);
+        setSentinelDetected(false);
+        setSentinelDetectedAtMs(null);
       }
     }
   }, [predictionEnabled, videoError, isSentinelActive]);
@@ -123,20 +135,29 @@ const ScenePanel: React.FC<ScenePanelProps> = ({
     return () => window.clearInterval(id);
   }, [videoEnded, isSentinelActive, userPrompt, vlmReply]);
 
-  // Analysis steps after pausing at 3 seconds (With Sentinel only)
+  const showObserve =
+    isSentinelActive && predictionEnabled && !videoEnded;
+  const showDetect = isSentinelActive && predictionEnabled && sentinelDetected;
+  const showMitigate = isSentinelActive && predictionEnabled && sentinelDetected;
+  const showAr =
+    isSentinelActive && predictionEnabled && !acquiring && videoTimeSec >= SENTINEL_DETECT_AT_SEC;
+
+  // Smooth timer for post-detect UI (even though video is paused)
   useEffect(() => {
-    if (!analysisPaused || !isSentinelActive) return;
-    setAnalysisStep(0);
-    const steps = 5;
-    const id = window.setInterval(() => {
-      setAnalysisStep((s) => {
-        const next = s + 1;
-        if (next >= steps) window.clearInterval(id);
-        return next;
-      });
-    }, 700);
-    return () => window.clearInterval(id);
-  }, [analysisPaused, isSentinelActive]);
+    if (!sentinelDetectedAtMs) return;
+    let raf = 0;
+    const tick = () => {
+      setSentinelNowMs(performance.now());
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [sentinelDetectedAtMs]);
+
+  const postDetectMs = sentinelDetectedAtMs ? Math.max(0, sentinelNowMs - sentinelDetectedAtMs) : 0;
+  const showDeciding = showDetect && postDetectMs < 700;
+  const showKillChecked = showDetect && postDetectMs >= 900;
+  const showNotifyChecked = showDetect && postDetectMs >= 1250;
 
   return (
     <div className={`relative w-full h-full bg-black overflow-hidden shadow-2xl transition-all duration-500 group ${
@@ -150,7 +171,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({
         {!videoError ? (
           <video
             ref={videoRef}
-            className={`w-full h-full object-cover transition-opacity duration-500 ${isSentinelActive ? 'opacity-80 grayscale-[30%]' : 'opacity-100 grayscale-0'}`}
+            className={`w-full h-full object-cover transition-opacity duration-500 ${isSentinelActive ? 'opacity-90 grayscale-[15%]' : 'opacity-100 grayscale-0'}`}
             style={{ objectPosition: videoObjectPosition }}
             muted
             playsInline
@@ -165,12 +186,17 @@ const ScenePanel: React.FC<ScenePanelProps> = ({
             onTimeUpdate={() => {
               const v = videoRef.current;
               if (!v) return;
+              setVideoTimeSec(v.currentTime);
               if (!isSentinelActive) return;
               if (!predictionEnabled) return;
-              if (analysisPaused) return;
-              if (v.currentTime >= SENTINEL_ANALYSIS_PAUSE_AT_SEC) {
+              if (sentinelDetected) return;
+              if (v.currentTime >= SENTINEL_DETECT_AT_SEC) {
+                // Pause the video and hold on the detected frame
                 v.pause();
-                setAnalysisPaused(true);
+                setSentinelDetected(true);
+                const now = performance.now();
+                setSentinelDetectedAtMs(now);
+                setSentinelNowMs(now);
               }
             }}
             onError={(e) => {
@@ -245,7 +271,7 @@ const ScenePanel: React.FC<ScenePanelProps> = ({
       {/* -------------------------------------------------------- */}
       {/* HUD: AR LAYER (With Sentinel) */}
       {/* -------------------------------------------------------- */}
-      {isSentinelActive && (
+      {showAr && (
         <svg viewBox="0 0 800 600" className="absolute inset-0 w-full h-full z-20 pointer-events-none">
           {/* Grid Overlay for Depth */}
           <defs>
@@ -285,8 +311,6 @@ const ScenePanel: React.FC<ScenePanelProps> = ({
               const y = scaleY(entity.position.y);
               const isHazard = riskLevel === RiskLevel.CRITICAL;
               const color = isHazard ? '#EF4444' : '#10B981'; // Red or Tech Green
-              const label =
-                entity.type === EntityType.FORKLIFT ? 'F-12' : entity.type === EntityType.HUMAN ? 'H-04' : entity.id;
 
               return (
                 <g key={`box-${entity.id}`} transform={`translate(${x}, ${y})`}>
@@ -298,15 +322,6 @@ const ScenePanel: React.FC<ScenePanelProps> = ({
 
                   {/* Tracking Dot */}
                   <circle r="2" fill={color} className="animate-pulse" />
-
-                  {/* Data Tag */}
-                  <g transform="translate(35, -30)">
-                    <rect x="0" y="0" width="60" height="24" fill="rgba(0,0,0,0.7)" stroke={color} strokeWidth="0.5" rx="2" />
-                    <text x="5" y="10" fill="white" fontSize="8" fontFamily="monospace" fontWeight="bold">{label}</text>
-                    <text x="5" y="20" fill={color} fontSize="7" fontFamily="monospace">
-                       {entity.type === EntityType.FORKLIFT ? 'VEL: 1.5m/s' : 'VEL: 0.8m/s'}
-                    </text>
-                  </g>
                 </g>
               );
           })}
@@ -314,91 +329,96 @@ const ScenePanel: React.FC<ScenePanelProps> = ({
       )}
 
       {/* -------------------------------------------------------- */}
-      {/* Sentinel Analysis Pause Overlay (With Sentinel) */}
+      {/* Sentinel Story Overlay (With Sentinel) */}
       {/* -------------------------------------------------------- */}
-      {isSentinelActive && analysisPaused && (
-        <div className="absolute inset-0 z-[55] flex items-center justify-center p-6 bg-black/45 backdrop-blur-[2px]">
-          <div className="max-w-4xl w-full">
-            <div className="bg-black/80 border border-emerald-400/20 rounded-2xl shadow-2xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-emerald-300" />
-                  <div className="text-xs font-mono text-emerald-300 uppercase tracking-widest">
-                    Sentinel World Model
+      {/* Subtle red tint when a future hazard is detected */}
+      {showDetect && (
+        <div className="absolute inset-0 z-[22] pointer-events-none transition-opacity duration-500">
+          <div className="absolute inset-0 bg-gradient-to-br from-red-600/25 via-red-600/10 to-black/40" />
+          <div className="absolute inset-0 bg-black/15" />
+        </div>
+      )}
+
+      {/* Observing pill (always, With Sentinel) */}
+      {showObserve && isSentinelActive && (
+        <div className="absolute top-20 left-6 z-[30] pointer-events-none">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-black/70 border border-white/10 backdrop-blur text-[11px] font-mono text-white/80">
+            <span className="w-2 h-2 rounded-full bg-emerald-300/70 animate-pulse" />
+            Sentinel AI observing…
+          </div>
+        </div>
+      )}
+
+      {/* Detection + mitigation headline */}
+      {showDetect && (
+        <div className="absolute inset-0 z-[35] flex items-center justify-center pointer-events-none px-6">
+          <div className="w-full max-w-2xl">
+            <div className="rounded-2xl bg-black/75 border border-white/10 backdrop-blur px-6 py-5 shadow-2xl">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-300" />
+                    <div className="text-[10px] font-mono text-emerald-200/80 uppercase tracking-widest">
+                      Sentinel AI
+                    </div>
+                  </div>
+                  <div className="mt-1 text-2xl font-black tracking-tight text-white">
+                    Potential hazard detected
+                  </div>
+                  <div className="mt-1 text-xs text-white/70">
+                    Sentinel AI predicts the future and detects what can go wrong.
                   </div>
                 </div>
-                <div className="text-[10px] font-mono text-white/60">
-                  paused @ {SENTINEL_ANALYSIS_PAUSE_AT_SEC.toFixed(1)}s
+                <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10">
+                  {showDeciding ? (
+                    <>
+                      <Loader2 className="w-4 h-4 text-white/70 animate-spin" />
+                      <div className="text-[10px] font-mono text-white/70 uppercase tracking-widest">
+                        Mitigation Agent deciding
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                      <div className="text-[10px] font-mono text-emerald-200/80 uppercase tracking-widest">
+                        Mitigation executing
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
-              <div className="p-5">
-                <div className="text-2xl md:text-3xl font-black tracking-tight text-white">
-                  Potential hazard detected
-                </div>
-                <div className="mt-1 text-xs md:text-sm text-white/65">
-                  Forecasted intersection: forklift × pedestrian. Running Monitoring Agent…
-                </div>
-
-                {/* Progress steps */}
-                <div className="mt-5 grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div className={`rounded-xl border px-4 py-3 bg-white/5 ${analysisStep >= 1 ? 'border-emerald-400/30' : 'border-white/10 opacity-70'}`}>
-                    <div className="flex items-center gap-2">
-                      <Brain className="w-4 h-4 text-emerald-300" />
-                      <div className="text-[11px] font-mono text-white/80 uppercase tracking-widest">Predict</div>
-                      {analysisStep >= 1 && <CheckCircle2 className="w-4 h-4 text-emerald-300 ml-auto" />}
-                    </div>
-                    <div className="mt-1 text-xs text-white/60">Simulate futures</div>
-                  </div>
-                  <div className={`rounded-xl border px-4 py-3 bg-white/5 ${analysisStep >= 2 ? 'border-emerald-400/30' : 'border-white/10 opacity-70'}`}>
-                    <div className="flex items-center gap-2">
-                      <ShieldAlert className="w-4 h-4 text-emerald-300" />
-                      <div className="text-[11px] font-mono text-white/80 uppercase tracking-widest">Detect</div>
-                      {analysisStep >= 2 && <CheckCircle2 className="w-4 h-4 text-emerald-300 ml-auto" />}
-                    </div>
-                    <div className="mt-1 text-xs text-white/60">Find conflict</div>
-                  </div>
-                  <div className={`rounded-xl border px-4 py-3 bg-white/5 ${analysisStep >= 3 ? 'border-emerald-400/30' : 'border-white/10 opacity-70'}`}>
-                    <div className="flex items-center gap-2">
-                      <Scan className="w-4 h-4 text-emerald-300" />
-                      <div className="text-[11px] font-mono text-white/80 uppercase tracking-widest">Decide</div>
-                      {analysisStep >= 3 && <CheckCircle2 className="w-4 h-4 text-emerald-300 ml-auto" />}
-                    </div>
-                    <div className="mt-1 text-xs text-white/60">Monitoring Agent</div>
-                  </div>
-                  <div className={`rounded-xl border px-4 py-3 bg-white/5 ${analysisStep >= 4 ? 'border-emerald-400/30' : 'border-white/10 opacity-70'}`}>
-                    <div className="flex items-center gap-2">
-                      <Power className="w-4 h-4 text-emerald-300" />
-                      <div className="text-[11px] font-mono text-white/80 uppercase tracking-widest">Act</div>
-                      {analysisStep >= 4 && <CheckCircle2 className="w-4 h-4 text-emerald-300 ml-auto" />}
-                    </div>
-                    <div className="mt-1 text-xs text-white/60">Mitigate now</div>
-                  </div>
-                </div>
-
-                {/* Action chips */}
-                <div className="mt-5 flex flex-col md:flex-row gap-3">
-                  <div className={`flex-1 rounded-xl border px-4 py-4 bg-emerald-500/10 ${analysisStep >= 4 ? 'border-emerald-400/30' : 'border-white/10 opacity-70'}`}>
-                    <div className="flex items-center gap-2">
-                      <Power className="w-5 h-5 text-emerald-200" />
-                      <div className="text-sm font-extrabold text-white">Kill switch vehicle</div>
-                      <div className="ml-auto text-[10px] font-mono text-white/50">F-12</div>
-                    </div>
-                  </div>
-                  <div className={`flex-1 rounded-xl border px-4 py-4 bg-white/5 ${analysisStep >= 5 ? 'border-emerald-400/30' : 'border-white/10 opacity-70'}`}>
-                    <div className="flex items-center gap-2">
-                      <Bell className="w-5 h-5 text-emerald-200" />
-                      <div className="text-sm font-extrabold text-white">Notify supervisor</div>
-                      <div className="ml-auto text-[10px] font-mono text-white/50">Shift Lead</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 text-[10px] font-mono text-white/45 uppercase tracking-widest">
-                  See dashboard updates on the right
-                </div>
+              <div className="mt-4 flex items-center gap-2 text-[11px] font-mono text-white/75">
+                <span className={`px-2 py-1 rounded-full border ${videoTimeSec >= SENTINEL_OBSERVE_OVERLAY_AT_SEC ? 'border-emerald-300/30 bg-white/5' : 'border-white/10 bg-white/0 opacity-60'}`}>
+                  Observe
+                </span>
+                <ChevronRight className="w-4 h-4 text-white/30" />
+                <span className={`px-2 py-1 rounded-full border ${videoTimeSec >= SENTINEL_OBSERVE_OVERLAY_AT_SEC + 0.3 ? 'border-emerald-300/30 bg-white/5' : 'border-white/10 bg-white/0 opacity-60'}`}>
+                  Predict
+                </span>
+                <ChevronRight className="w-4 h-4 text-white/30" />
+                <span className={`px-2 py-1 rounded-full border ${videoTimeSec >= SENTINEL_DETECT_AT_SEC ? 'border-red-300/30 bg-red-500/10' : 'border-white/10 bg-white/0 opacity-60'}`}>
+                  Detect
+                </span>
+                <ChevronRight className="w-4 h-4 text-white/30" />
+                <span className={`px-2 py-1 rounded-full border ${showMitigate ? 'border-emerald-300/30 bg-emerald-500/10' : 'border-white/10 bg-white/0 opacity-60'}`}>
+                  Mitigate
+                </span>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Arrow pointing to the right panel when mitigation starts */}
+      {showMitigate && (
+        <div className="absolute right-6 top-1/2 -translate-y-1/2 z-[36] pointer-events-none hidden lg:block">
+          <div className="flex items-center gap-2">
+            <div className="text-[10px] font-mono text-white/70 uppercase tracking-widest">
+              Actions
+            </div>
+            <div className="w-20 h-px bg-gradient-to-r from-white/10 to-emerald-300/60" />
+            <div className="w-0 h-0 border-l-[10px] border-l-emerald-300/60 border-y-[6px] border-y-transparent" />
           </div>
         </div>
       )}

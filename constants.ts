@@ -7,7 +7,14 @@ export const PREDICTION_WINDOW_SEC = 5;
 
 // Demo timing (With Sentinel)
 export const SENTINEL_VIDEO_START_DELAY_SEC = 0.75;
-export const SENTINEL_ANALYSIS_PAUSE_AT_SEC = 3.0;
+// Story beats (relative to video time, after the start delay)
+export const SENTINEL_OBSERVE_OVERLAY_AT_SEC = 3.0;
+export const SENTINEL_DETECT_AT_SEC = 3.6;
+export const SENTINEL_MITIGATE_AT_SEC = 4.1;
+
+// Decision timings (relative to video time)
+export const SENTINEL_KILL_SWITCH_AT_SEC = 4.5;
+export const SENTINEL_NOTIFY_SUPERVISOR_AT_SEC = 4.9;
 
 // Colors - Redesigned for Light Mode / High Visibility overlay
 export const COLORS = {
@@ -29,7 +36,7 @@ export const COLORS = {
 // Initial Entities State (Static positions for now as requested)
 export const INITIAL_ENTITIES: Entity[] = [
   {
-    id: 'F-12',
+    id: 'Trigger Kill Switch MCP',
     type: EntityType.FORKLIFT,
     position: { x: 30, y: 55 },
     velocity: { x: 1.5, y: 0 },

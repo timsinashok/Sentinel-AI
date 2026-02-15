@@ -4,7 +4,15 @@ import ScenePanel from './components/ScenePanel';
 import RiskSummary from './components/RiskSummary';
 import AgentActionPanel from './components/AgentActionPanel';
 import { RiskLevel, MitigationAction, SystemMode } from './types';
-import { INITIAL_ENTITIES, SENTINEL_ANALYSIS_PAUSE_AT_SEC, SENTINEL_VIDEO_START_DELAY_SEC } from './constants';
+import {
+  INITIAL_ENTITIES,
+  SENTINEL_DETECT_AT_SEC,
+  SENTINEL_KILL_SWITCH_AT_SEC,
+  SENTINEL_NOTIFY_SUPERVISOR_AT_SEC,
+  SENTINEL_MITIGATE_AT_SEC,
+  SENTINEL_OBSERVE_OVERLAY_AT_SEC,
+  SENTINEL_VIDEO_START_DELAY_SEC,
+} from './constants';
 
 const App: React.FC = () => {
   // --- State ---
@@ -13,7 +21,6 @@ const App: React.FC = () => {
   const [systemMode, setSystemMode] = useState<SystemMode>('PASSIVE');
   const [elapsedTime, setElapsedTime] = useState(0); 
   const scenarioDurationSec = systemMode === 'PASSIVE' ? 14 : 6;
-  const sentinelHoldAtSec = SENTINEL_VIDEO_START_DELAY_SEC + SENTINEL_ANALYSIS_PAUSE_AT_SEC;
   
   // UI State
   const [riskLevel, setRiskLevel] = useState<RiskLevel>(RiskLevel.SAFE);
@@ -28,6 +35,7 @@ const App: React.FC = () => {
     if (!simulationActive) {
         setRiskLevel(RiskLevel.SAFE);
         setTimeToHazard(null);
+        setActions([]);
         return;
     }
 
@@ -49,50 +57,31 @@ const App: React.FC = () => {
     } 
     // "With Sentinel" Logic
     else {
-      if (remainingTime > 0 && remainingTime < 6) {
-        setRiskLevel(RiskLevel.CRITICAL);
-        setTimeToHazard(remainingTime);
-        
-        // Sequenced Actions
-        if (elapsedTime > 0.8 && actions.length === 0) {
-          setActions([{
-              id: 'a1', timestamp: 0.8, action: 'WORLD_MODEL_FORECAST', targetId: 'ZONE-B',
-              rationale: 'Sentinel world model forecasting 5s ahead across forklift + pedestrian trajectories.', status: 'EXECUTED'
-          }]);
-        }
-        if (elapsedTime > 1.6 && actions.length === 1) {
-            setActions(prev => [...prev, {
-                  id: 'a2', timestamp: 1.6, action: 'HAZARD_DETECTED', targetId: 'F-12',
-                  rationale: 'Potential collision identified in forecasted intersection corridor. Escalating to monitoring agent.', status: 'EXECUTED'
-            }]);
-        }
-        if (elapsedTime >= sentinelHoldAtSec && actions.length === 2) {
-          setActions(prev => [
-            ...prev,
-            {
-              id: 'a3',
-              timestamp: sentinelHoldAtSec,
-              action: 'KILL_SWITCH',
-              targetId: 'F-12',
-              rationale: 'Monitoring Agent recommendation: immediately disable vehicle power to eliminate kinetic energy in shared aisle.',
-              status: 'EXECUTED',
-            },
-            {
-              id: 'a4',
-              timestamp: sentinelHoldAtSec + 0.1,
-              action: 'NOTIFY_SUPERVISOR',
-              targetId: 'SHIFT-LEAD',
-              rationale: 'Notify supervisor with incident context, location, and recommended safety protocol.',
-              status: 'EXECUTED',
-            },
-          ]);
-        }
-      } else if (remainingTime <= 0) {
-        setRiskLevel(RiskLevel.SAFE); 
-        setTimeToHazard(null);
+      // Risk becomes meaningful at detection time
+      const detected = videoTimeSec >= SENTINEL_DETECT_AT_SEC && remainingTime > 0;
+      setRiskLevel(detected ? RiskLevel.CRITICAL : RiskLevel.SAFE);
+      setTimeToHazard(detected ? remainingTime : null);
+
+      // Right panel: ONLY the two final decisions, checked sequentially
+      const next: MitigationAction[] = [];
+      const push = (id: string, timestamp: number, action: string, targetId: string) => {
+        next.push({ id, timestamp, action, targetId, rationale: '', status: 'EXECUTED' });
+      };
+
+      if (videoTimeSec >= SENTINEL_KILL_SWITCH_AT_SEC) {
+        push('d1', SENTINEL_KILL_SWITCH_AT_SEC, 'KILL_SWITCH', 'F-12');
       }
+      if (videoTimeSec >= SENTINEL_NOTIFY_SUPERVISOR_AT_SEC) {
+        push('d2', SENTINEL_NOTIFY_SUPERVISOR_AT_SEC, 'NOTIFY_SUPERVISOR', 'SHIFT-LEAD');
+      }
+
+      setActions((prev) => {
+        const prevIds = prev.map((a) => a.id).join(',');
+        const nextIds = next.map((a) => a.id).join(',');
+        return prevIds === nextIds ? prev : next;
+      });
     }
-  }, [elapsedTime, simulationActive, actions, systemMode]);
+  }, [elapsedTime, simulationActive, systemMode]);
 
   // --- Animation/Timer Loop ---
   const animate = (time: number) => {
@@ -100,10 +89,9 @@ const App: React.FC = () => {
     const delta = (time - startTimeRef.current) / 1000;
     
     // Without Sentinel: play full 14s clip
-    // With Sentinel: pause at requested analysis time (video time 3s, with 0.75s acquisition delay)
-    const stopAtSec = systemMode === 'ACTIVE' ? sentinelHoldAtSec : scenarioDurationSec;
-    if (delta >= stopAtSec) {
-      setElapsedTime(stopAtSec);
+    // With Sentinel: keep a tight 6s demo window (no hard pause)
+    if (delta >= scenarioDurationSec) {
+      setElapsedTime(scenarioDurationSec);
       return;
     }
     
@@ -156,6 +144,16 @@ const App: React.FC = () => {
              <span className="text-[9px] font-mono text-ceramic-400 uppercase tracking-widest">Autonomous Safety OS v2.4</span>
           </div>
         </div>
+
+        {/* Center: How it works */}
+        <a
+          href="/how-it-works.html"
+          target="_blank"
+          rel="noreferrer"
+          className="absolute left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full border border-ceramic-200 bg-white shadow-sm text-[11px] font-mono font-bold text-ceramic-700 hover:bg-ceramic-50 hover:text-ceramic-900 transition-colors"
+        >
+          Understand how it works
+        </a>
 
         {/* Global Tools */}
         <div className="flex items-center gap-4">
