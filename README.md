@@ -1,3 +1,12 @@
+FYI This project was submitted by Nils, Ashok and Parth for TREE Hacks 2026 
+
+Sponsors Used: 
+NVIDIA
+Gemini AI
+Human Capital
+
+
+
 # Sentinel AI
 ### Predicting hazards before they happen.
 
