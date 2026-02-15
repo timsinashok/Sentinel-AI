@@ -6,6 +6,9 @@ Gemini AI
 Human Capital
 
 
+Backend Available at: https://github.com/timsinashok/cosmos-predict2.5
+
+
 
 # Sentinel AI
 ### Predicting hazards before they happen.
